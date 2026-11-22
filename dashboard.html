@@ -1,0 +1,2078 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Dashboard - Real-time</title>
+    <script>
+        // Terapkan tema sebelum halaman digambar agar tidak berkedip
+        (function () {
+            var t = null;
+            try { t = localStorage.getItem('iot-theme'); } catch (e) {}
+            if (t !== 'light' && t !== 'dark') {
+                t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+            }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <style>
+        /* ==============================
+           TEMA
+           ============================== */
+        :root {
+            color-scheme: dark;
+
+            --bg: #070b14;
+            --glow-1: rgba(56, 189, 248, 0.16);
+            --glow-2: rgba(129, 140, 248, 0.16);
+            --glow-3: rgba(52, 211, 153, 0.08);
+            --surface: rgba(17, 24, 39, 0.72);
+            --surface-2: rgba(255, 255, 255, 0.04);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.16);
+
+            --text: #e5e7eb;
+            --text-strong: #f9fafb;
+            --muted: #9ca3af;
+            --faint: #6b7280;
+
+            --primary: #38bdf8;
+            --primary-2: #818cf8;
+            --temp: #fb923c;
+            --hum: #38bdf8;
+            --ok: #34d399;
+            --warn: #fbbf24;
+            --danger: #f87171;
+
+            --ok-text: #6ee7b7;
+            --bad-text: #fca5a5;
+            --warn-text: #fcd34d;
+
+            --input-bg: rgba(2, 6, 23, 0.55);
+            --th-bg: rgba(255, 255, 255, 0.04);
+            --row-hover: rgba(255, 255, 255, 0.035);
+            --code-bg: rgba(56, 189, 248, 0.12);
+            --code-text: #7dd3fc;
+            --dialog-bg: linear-gradient(160deg, #1f2937, #0f172a);
+            --dialog-title: #fee2e2;
+            --chart-text: #9ca3af;
+            --chart-grid: rgba(255, 255, 255, 0.06);
+            --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+
+            --radius: 20px;
+            --radius-sm: 12px;
+            --font: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        :root[data-theme="light"] {
+            color-scheme: light;
+
+            --bg: #eef2f7;
+            --glow-1: rgba(56, 189, 248, 0.2);
+            --glow-2: rgba(129, 140, 248, 0.18);
+            --glow-3: rgba(52, 211, 153, 0.12);
+            --surface: rgba(255, 255, 255, 0.82);
+            --surface-2: rgba(15, 23, 42, 0.045);
+            --border: rgba(15, 23, 42, 0.09);
+            --border-strong: rgba(15, 23, 42, 0.18);
+
+            --text: #334155;
+            --text-strong: #0f172a;
+            --muted: #64748b;
+            --faint: #94a3b8;
+
+            --primary: #0284c7;
+            --primary-2: #6366f1;
+            --temp: #ea580c;
+            --hum: #0284c7;
+            --ok: #059669;
+            --warn: #d97706;
+            --danger: #dc2626;
+
+            --ok-text: #047857;
+            --bad-text: #b91c1c;
+            --warn-text: #b45309;
+
+            --input-bg: #ffffff;
+            --th-bg: rgba(15, 23, 42, 0.04);
+            --row-hover: rgba(15, 23, 42, 0.035);
+            --code-bg: rgba(2, 132, 199, 0.1);
+            --code-text: #0369a1;
+            --dialog-bg: linear-gradient(160deg, #ffffff, #f8fafc);
+            --dialog-title: #b91c1c;
+            --chart-text: #64748b;
+            --chart-grid: rgba(15, 23, 42, 0.08);
+            --shadow: 0 12px 34px rgba(15, 23, 42, 0.09);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            min-height: 100vh;
+            padding: 36px 24px 72px;
+            font-family: var(--font);
+            color: var(--text);
+            line-height: 1.5;
+            background:
+                radial-gradient(900px 500px at 10% -10%, var(--glow-1), transparent 60%),
+                radial-gradient(800px 500px at 100% 10%, var(--glow-2), transparent 60%),
+                radial-gradient(700px 500px at 50% 110%, var(--glow-3), transparent 60%),
+                var(--bg);
+            background-attachment: fixed;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color 300ms ease, color 300ms ease;
+        }
+
+        .container {
+            width: min(100%, 1120px);
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px; height: 1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+        }
+
+        /* ==============================
+           HEADER & NAVIGASI
+           ============================== */
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .brand { display: flex; align-items: center; gap: 14px; }
+
+        .brand-icon {
+            display: grid;
+            place-items: center;
+            width: 48px; height: 48px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-2));
+            box-shadow: 0 10px 30px rgba(56, 189, 248, 0.3);
+            color: #fff;
+        }
+        .brand-icon svg { width: 26px; height: 26px; }
+
+        h1 {
+            color: var(--text-strong);
+            font-size: clamp(22px, 3.5vw, 30px);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+        }
+
+        .brand p { margin-top: 2px; color: var(--muted); font-size: 13px; }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .last-update {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--surface-2);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .last-update svg { width: 14px; height: 14px; }
+
+        .quick-nav {
+            position: sticky;
+            top: 12px;
+            z-index: 20;
+            display: flex;
+            gap: 4px;
+            padding: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--surface);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: var(--shadow);
+            scrollbar-width: none;
+        }
+        .quick-nav::-webkit-scrollbar { display: none; }
+
+        .quick-nav a {
+            flex: 0 0 auto;
+            padding: 8px 15px;
+            border-radius: 11px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 160ms ease, color 160ms ease;
+        }
+        .quick-nav a:hover { background: var(--surface-2); color: var(--text-strong); }
+        .quick-nav a.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-2));
+            color: #fff;
+        }
+        .quick-nav a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+        [id^="sec-"] { scroll-margin-top: 84px; }
+
+        /* ==============================
+           PANEL
+           ============================== */
+        .panel {
+            padding: 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .panel h2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-strong);
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+        .panel h2 svg { width: 20px; height: 20px; color: var(--primary); flex-shrink: 0; }
+
+        .panel-sub { margin-top: 4px; color: var(--muted); font-size: 13px; }
+
+        .panel-sub code, .hint code {
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: var(--code-bg);
+            color: var(--code-text);
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 12px;
+        }
+
+        .hint { margin-top: 14px; color: var(--muted); font-size: 13px; }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        /* ==============================
+           BADGE & PILL
+           ============================== */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 13px;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+        }
+        .status-badge::before {
+            content: '';
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .status-online {
+            background: rgba(52, 211, 153, 0.12);
+            border-color: rgba(52, 211, 153, 0.3);
+            color: var(--ok-text);
+        }
+        .status-online::before { animation: pulse 2s infinite; }
+
+        .status-offline {
+            background: rgba(248, 113, 113, 0.1);
+            border-color: rgba(248, 113, 113, 0.28);
+            color: var(--bad-text);
+        }
+
+        @keyframes pulse {
+            0%   { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }
+            70%  { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+        .pill-warn {
+            background: rgba(251, 191, 36, 0.14);
+            color: var(--warn-text);
+        }
+
+        /* ==============================
+           FORM, TOMBOL
+           ============================== */
+        .controls {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .field {
+            display: flex;
+            flex: 1 1 220px;
+            flex-direction: column;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .field label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .field input {
+            width: 100%;
+            min-height: 48px;
+            padding: 12px 14px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-sm);
+            outline: none;
+            background: var(--input-bg);
+            color: var(--text-strong);
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 160ms ease, box-shadow 160ms ease;
+        }
+        .field input::placeholder { color: var(--faint); }
+        .field input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.16);
+        }
+
+        .input-wrap { position: relative; }
+        .input-wrap input { padding-right: 52px; }
+        .input-wrap .reveal {
+            position: absolute;
+            top: 50%; right: 6px;
+            transform: translateY(-50%);
+            width: 36px; height: 36px;
+            border: 0;
+            background: transparent;
+        }
+
+        .stepper { display: flex; gap: 8px; }
+        .stepper input { flex: 1; min-width: 0; text-align: center; font-weight: 700; font-size: 16px; }
+
+        .range-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 18px;
+            color: var(--faint);
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .range-row input[type="range"] {
+            flex: 1;
+            height: 6px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 48px;
+            padding: 12px 22px;
+            border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            color: #fff;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 160ms ease, filter 160ms ease, background 160ms ease;
+        }
+        .btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
+        .btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn:focus-visible, .icon-btn:focus-visible, .seg-btn:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 3px;
+        }
+
+        .btn-on {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 10px 24px rgba(16, 185, 129, 0.25);
+        }
+        .btn-off {
+            background: linear-gradient(135deg, #f43f5e, #dc2626);
+            box-shadow: 0 10px 24px rgba(244, 63, 94, 0.25);
+        }
+        .btn-muted {
+            border-color: var(--border-strong);
+            background: var(--surface-2);
+            color: var(--text);
+            box-shadow: none;
+        }
+        .btn-muted:hover:not(:disabled) { background: var(--border); }
+        .btn-sm { min-height: 38px; padding: 8px 14px; font-size: 13px; }
+
+        .controls .btn { flex: 0 0 auto; }
+        .device-controls .btn { flex: 1 1 160px; }
+
+        .icon-btn {
+            display: inline-grid;
+            place-items: center;
+            flex: 0 0 auto;
+            width: 48px; height: 48px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-sm);
+            background: var(--surface-2);
+            color: var(--text);
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 160ms ease, transform 160ms ease, color 160ms ease;
+        }
+        .icon-btn:hover { background: var(--border); }
+        .icon-btn:active { transform: scale(0.94); }
+        .icon-btn svg { width: 18px; height: 18px; }
+
+        .header-actions .icon-btn { width: 40px; height: 40px; }
+        .icon-btn[aria-pressed="true"].toggle { color: var(--primary); border-color: var(--primary); }
+
+        /* Tombol tema: ikon matahari saat gelap, bulan saat terang */
+        .icon-moon { display: none; }
+        :root[data-theme="light"] .icon-sun { display: none; }
+        :root[data-theme="light"] .icon-moon { display: block; }
+
+        /* Toggle password */
+        .reveal .icon-eye-off { display: none; }
+        .reveal[aria-pressed="true"] .icon-eye { display: none; }
+        .reveal[aria-pressed="true"] .icon-eye-off { display: block; }
+
+        /* Toggle jeda grafik */
+        #chart-pause .ic-play { display: none; }
+        #chart-pause[aria-pressed="true"] .ic-play { display: block; }
+        #chart-pause[aria-pressed="true"] .ic-pause { display: none; }
+
+        .segmented {
+            display: inline-flex;
+            padding: 3px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--surface-2);
+        }
+        .seg-btn {
+            padding: 7px 13px;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: var(--muted);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 160ms ease, color 160ms ease;
+        }
+        .seg-btn:hover { color: var(--text-strong); }
+        .seg-btn[aria-pressed="true"] {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.28);
+        }
+
+        /* ==============================
+           KARTU SENSOR
+           ============================== */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            position: relative;
+            overflow: hidden;
+            padding: 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            transition: transform 200ms ease, border-color 300ms ease;
+        }
+        .card::after {
+            content: '';
+            position: absolute;
+            top: -60px; right: -60px;
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            background: var(--accent, var(--primary));
+            opacity: 0.13;
+            filter: blur(30px);
+            pointer-events: none;
+            transition: background 400ms ease;
+        }
+        .card:hover { transform: translateY(-3px); border-color: var(--border-strong); }
+
+        .card-temp { --accent: var(--temp); }
+        .card-hum  { --accent: var(--hum); }
+        .card-stat { --accent: var(--ok); }
+
+        .card-temp[data-state="near"] { --accent: var(--warn); border-color: rgba(251, 191, 36, 0.4); }
+        .card-temp[data-state="over"] {
+            --accent: var(--danger);
+            border-color: rgba(248, 113, 113, 0.55);
+            animation: glow 2s ease-in-out infinite;
+        }
+        @keyframes glow {
+            0%, 100% { box-shadow: var(--shadow), 0 0 0 0 rgba(248, 113, 113, 0.0); }
+            50%      { box-shadow: var(--shadow), 0 0 0 6px rgba(248, 113, 113, 0.16); }
+        }
+
+        .card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+        .card .label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .card-icon {
+            display: grid;
+            place-items: center;
+            width: 40px; height: 40px;
+            border-radius: 12px;
+            background: color-mix(in srgb, var(--accent) 16%, transparent);
+            color: var(--accent);
+            transition: background 400ms ease, color 400ms ease;
+        }
+        .card-icon svg { width: 21px; height: 21px; }
+
+        .card .value {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-top: 18px;
+            color: var(--text-strong);
+            font-size: clamp(38px, 5vw, 50px);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1.05;
+        }
+        .card .unit { color: var(--muted); font-size: 18px; font-weight: 600; letter-spacing: 0; }
+
+        .flash { animation: flash 700ms ease; }
+        @keyframes flash {
+            0%   { color: var(--accent); transform: scale(1.07); }
+            100% { color: var(--text-strong); transform: scale(1); }
+        }
+
+        .trend { margin-left: 4px; font-size: 14px; font-weight: 700; letter-spacing: 0; }
+        .trend-up   { color: var(--danger); }
+        .trend-down { color: var(--hum); }
+        .trend-flat { color: var(--faint); }
+
+        .gauge {
+            position: relative;
+            height: 8px;
+            margin-top: 18px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--surface-2);
+        }
+        .gauge-fill {
+            width: 0;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent), var(--accent));
+            transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1), background 400ms ease;
+        }
+        .gauge-mark {
+            position: absolute;
+            top: -4px; bottom: -4px;
+            left: 80%;
+            width: 2px;
+            border-radius: 2px;
+            background: var(--danger);
+            transition: left 400ms ease;
+        }
+
+        .card .value-status { display: flex; align-items: center; min-height: 52px; margin-top: 22px; }
+        .card .value-status .status-badge { padding: 10px 18px; font-size: 13px; }
+        .card .caption { margin-top: 12px; color: var(--muted); font-size: 12.5px; font-weight: 500; }
+
+        /* ==============================
+           GRAFIK
+           ============================== */
+        .chart-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .legend-item, .stat-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--surface-2);
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .stat-chip strong { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+
+        .legend-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--primary); }
+        .legend-dot.limit { background: var(--danger); border-radius: 2px; height: 3px; width: 14px; }
+
+        .chart-wrap { position: relative; min-height: 300px; }
+
+        /* ==============================
+           LAMPU
+           ============================== */
+        .lamp-state {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface-2);
+            transition: border-color 300ms ease, background 300ms ease;
+        }
+        .bulb {
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+            width: 46px; height: 46px;
+            border-radius: 50%;
+            background: var(--surface-2);
+            color: var(--faint);
+            transition: all 300ms ease;
+        }
+        .bulb svg { width: 24px; height: 24px; }
+        .lamp-state strong { display: block; color: var(--text-strong); font-size: 14px; }
+        .lamp-state span.sub { color: var(--muted); font-size: 12.5px; }
+
+        .lamp-state[data-state="on"] {
+            border-color: rgba(251, 191, 36, 0.45);
+            background: rgba(251, 191, 36, 0.08);
+        }
+        .lamp-state[data-state="on"] .bulb {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--warn);
+            box-shadow: 0 0 26px rgba(251, 191, 36, 0.5);
+        }
+
+        /* ==============================
+           TABEL & LOG
+           ============================== */
+        .table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+        }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        th {
+            background: var(--th-bg);
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        td { color: var(--text); font-variant-numeric: tabular-nums; }
+        tbody tr:last-child td { border-bottom: 0; }
+        tbody tr:hover td { background: var(--row-hover); }
+
+        .row-new td { animation: rowflash 1.8s ease; }
+        @keyframes rowflash {
+            0%   { background: rgba(56, 189, 248, 0.28); }
+            100% { background: transparent; }
+        }
+
+        #log {
+            max-height: 240px;
+            overflow-y: auto;
+            padding: 16px 18px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: #0b1220;
+            color: #86efac;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 12.5px;
+            line-height: 1.7;
+        }
+        #log .error { color: #fda4af; }
+        #log .info  { color: #7dd3fc; }
+        #log[data-filter="info"] .error { display: none; }
+        #log[data-filter="error"] .info { display: none; }
+
+        #log::-webkit-scrollbar, .table-wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+        #log::-webkit-scrollbar-thumb, .table-wrap::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+        }
+
+        /* ==============================
+           TOAST
+           ============================== */
+        .toast-container {
+            position: fixed;
+            right: 20px; bottom: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: min(380px, calc(100vw - 28px));
+            pointer-events: none;
+        }
+
+        .toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 13px 14px;
+            border: 1px solid var(--border-strong);
+            border-left: 4px solid var(--primary);
+            border-radius: 14px;
+            background: var(--surface);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+            color: var(--text-strong);
+            font-size: 13.5px;
+            pointer-events: auto;
+            animation: toast-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .toast-success { border-left-color: var(--ok); }
+        .toast-error   { border-left-color: var(--danger); }
+        .toast-icon { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px; color: var(--primary); }
+        .toast-success .toast-icon { color: var(--ok); }
+        .toast-error .toast-icon   { color: var(--danger); }
+        .toast-icon svg { width: 20px; height: 20px; display: block; }
+        .toast-text { flex: 1; word-break: break-word; }
+        .toast-close {
+            flex: 0 0 auto;
+            width: 24px; height: 24px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--muted);
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .toast-close:hover { background: var(--surface-2); color: var(--text-strong); }
+        .toast-out { animation: toast-out 220ms ease forwards; }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(24px) scale(0.96); }
+            to   { opacity: 1; transform: none; }
+        }
+        @keyframes toast-out {
+            to { opacity: 0; transform: translateX(24px) scale(0.96); }
+        }
+
+        /* ==============================
+           DIALOG PERINGATAN
+           ============================== */
+        .alert-dialog {
+            width: min(460px, calc(100vw - 32px));
+            margin: auto;
+            padding: 28px;
+            border: 1px solid rgba(248, 113, 113, 0.4);
+            border-radius: 24px;
+            background: var(--dialog-bg);
+            color: var(--text);
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5), 0 0 0 6px rgba(248, 113, 113, 0.06);
+        }
+        .alert-dialog[open] { animation: pop 220ms ease; }
+        @keyframes pop {
+            from { opacity: 0; transform: scale(0.94) translateY(8px); }
+            to   { opacity: 1; transform: none; }
+        }
+        .alert-dialog::backdrop { background: rgba(2, 6, 23, 0.7); backdrop-filter: blur(6px); }
+
+        .alert-dialog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+
+        .alert-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(248, 113, 113, 0.14);
+            color: var(--bad-text);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+        }
+        .alert-label svg { width: 14px; height: 14px; }
+
+        .alert-close {
+            width: 36px; height: 36px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: transparent;
+            color: var(--text);
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 160ms ease;
+        }
+        .alert-close:hover { background: var(--surface-2); }
+        .alert-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+        .alert-dialog h2 {
+            margin-bottom: 8px;
+            color: var(--dialog-title);
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        .alert-dialog p { margin-bottom: 20px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+
+        .alert-details { display: grid; gap: 10px; margin-bottom: 22px; }
+        .alert-details div {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 13px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface-2);
+        }
+        .alert-details dt { color: var(--muted); font-size: 14px; }
+        .alert-details dd { color: var(--bad-text); font-weight: 700; text-align: right; font-size: 14px; }
+
+        .alert-dialog .alert-note { margin: -4px 0 20px; color: var(--faint); font-size: 12px; }
+        .alert-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+        /* ==============================
+           RESPONSIF
+           ============================== */
+        @media (max-width: 800px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 22px 14px 56px; }
+            .panel { padding: 20px 16px; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .controls .btn { width: 100%; }
+            .header-actions { width: 100%; justify-content: space-between; }
+            .alert-dialog { padding: 22px 18px; }
+            .alert-dialog-actions { flex-direction: column-reverse; }
+            .alert-dialog-actions .btn { width: 100%; }
+            th, td { padding: 11px 12px; font-size: 13px; }
+            .toast-container { right: 14px; bottom: 14px; }
+            .toolbar { width: 100%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Header -->
+    <header class="page-header">
+        <div class="brand">
+            <div class="brand-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+            </div>
+            <div>
+                <h1>IoT Dashboard</h1>
+                <p>Pantau sensor dan kendalikan perangkat secara real-time</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <span class="last-update">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                <span id="last-update-text">Menunggu data…</span>
+            </span>
+            <button class="icon-btn toggle" id="sound-toggle" type="button" aria-pressed="false" aria-label="Aktifkan suara peringatan" title="Suara peringatan">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            </button>
+            <button class="icon-btn" id="theme-toggle" type="button" aria-label="Ganti tema" title="Ganti tema">
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <div class="status-badge status-offline" id="ws-status" title="Koneksi WebSocket real-time">MENGHUBUNGKAN</div>
+        </div>
+    </header>
+
+    <!-- Navigasi cepat -->
+    <nav class="quick-nav" aria-label="Navigasi bagian">
+        <a href="#sec-koneksi">Koneksi</a>
+        <a href="#sec-sensor">Sensor</a>
+        <a href="#sec-grafik">Grafik</a>
+        <a href="#sec-kontrol">Kontrol</a>
+        <a href="#sec-riwayat">Riwayat</a>
+        <a href="#sec-log">Log</a>
+    </nav>
+
+    <!-- Koneksi API -->
+    <section class="panel" id="sec-koneksi">
+        <div class="panel-head">
+            <div>
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 7h3a5 5 0 0 1 0 10h-3m-6 0H6A5 5 0 0 1 6 7h3"/><path d="M8 12h8"/></svg>
+                    Koneksi API
+                </h2>
+                <p class="panel-sub">Masukkan API key Node-RED lalu tekan <strong>Sambungkan</strong> (atau Enter) untuk memuat data.</p>
+            </div>
+            <span id="api-status" class="status-badge status-offline">BELUM TERSAMBUNG</span>
+        </div>
+        <div class="controls">
+            <div class="field">
+                <label for="api-key">API key (X-API-Key)</label>
+                <div class="input-wrap">
+                    <input id="api-key" type="password" autocomplete="off" placeholder="Masukkan API key Node-RED">
+                    <button class="icon-btn reveal" id="toggle-key" type="button" aria-pressed="false" aria-label="Tampilkan API key" title="Tampilkan / sembunyikan">
+                        <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                </div>
+            </div>
+            <button class="btn btn-on" id="connect-api" type="button">Sambungkan</button>
+        </div>
+    </section>
+
+    <!-- Kartu Sensor -->
+    <section class="cards" id="sec-sensor" aria-label="Data sensor">
+        <div class="card card-temp" id="card-temp" data-state="normal">
+            <div class="card-top">
+                <div class="label">Suhu</div>
+                <div class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+                </div>
+            </div>
+            <div class="value">
+                <span id="suhu">--</span><span class="unit">°C</span>
+                <span class="trend" id="suhu-trend" aria-hidden="true"></span>
+            </div>
+            <div class="gauge" aria-hidden="true" title="Posisi suhu terhadap batas notifikasi (garis merah)">
+                <div class="gauge-fill" id="gauge-fill"></div>
+                <div class="gauge-mark" id="gauge-mark"></div>
+            </div>
+            <div class="caption" id="temp-caption">Menunggu data suhu</div>
+        </div>
+
+        <div class="card card-hum">
+            <div class="card-top">
+                <div class="label">Kelembaban</div>
+                <div class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                </div>
+            </div>
+            <div class="value"><span id="kelembaban">--</span><span class="unit">%</span></div>
+            <div class="caption">Kelembaban udara saat ini</div>
+        </div>
+
+        <div class="card card-stat">
+            <div class="card-top">
+                <div class="label">Status Sensor</div>
+                <div class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                </div>
+            </div>
+            <div class="value-status" id="status">
+                <span class="status-badge status-offline" id="status-badge">OFFLINE</span>
+            </div>
+            <div class="caption" id="status-caption">Berubah ONLINE saat data masuk</div>
+        </div>
+    </section>
+
+    <!-- Grafik -->
+    <section class="panel" id="sec-grafik">
+        <div class="panel-head">
+            <div>
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+                    Grafik Suhu Real-time
+                </h2>
+                <p class="panel-sub">Arahkan kursor ke grafik untuk melihat nilai tiap titik.</p>
+            </div>
+            <div class="toolbar">
+                <div class="segmented" id="range-group" role="group" aria-label="Jumlah data pada grafik">
+                    <button class="seg-btn" type="button" data-range="20" aria-pressed="false">20</button>
+                    <button class="seg-btn" type="button" data-range="50" aria-pressed="true">50</button>
+                    <button class="seg-btn" type="button" data-range="100" aria-pressed="false">100</button>
+                </div>
+                <button class="btn btn-muted btn-sm" id="chart-pause" type="button" aria-pressed="false">
+                    <svg class="ic-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    <svg class="ic-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <span id="chart-pause-label">Jeda</span>
+                </button>
+            </div>
+        </div>
+        <div class="chart-meta">
+            <span class="legend-item" aria-label="Seri grafik: suhu dalam derajat Celsius"><span class="legend-dot" aria-hidden="true"></span>Suhu (°C)</span>
+            <span class="legend-item"><span class="legend-dot limit" aria-hidden="true"></span>Batas notifikasi</span>
+            <span class="stat-chip">Min <strong id="stat-min">--</strong></span>
+            <span class="stat-chip">Rata-rata <strong id="stat-avg">--</strong></span>
+            <span class="stat-chip">Maks <strong id="stat-max">--</strong></span>
+            <span class="pill pill-warn" id="chart-paused-badge" hidden>Grafik dijeda</span>
+        </div>
+        <div class="chart-wrap">
+            <canvas id="sensor-chart" aria-label="Grafik suhu sensor" role="img"></canvas>
+        </div>
+    </section>
+
+    <!-- Batas notifikasi & Kontrol -->
+    <div class="grid-2" id="sec-kontrol">
+        <section class="panel">
+            <div class="panel-head">
+                <div>
+                    <h2>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        Batas Notifikasi Suhu
+                    </h2>
+                    <p class="panel-sub">Ketik, geser, atau tekan + / − untuk mengatur batas.</p>
+                </div>
+            </div>
+            <div class="controls">
+                <div class="field">
+                    <label for="threshold">
+                        <span>Batas suhu (°C)</span>
+                        <span class="pill pill-warn" id="threshold-dirty" hidden>Belum disimpan</span>
+                    </label>
+                    <div class="stepper">
+                        <button class="icon-btn" id="thr-minus" type="button" aria-label="Kurangi batas 0,5 derajat">−</button>
+                        <input id="threshold" type="number" min="-50" max="200" step="0.1" value="30">
+                        <button class="icon-btn" id="thr-plus" type="button" aria-label="Tambah batas 0,5 derajat">+</button>
+                    </div>
+                </div>
+                <button class="btn btn-on" id="save-threshold">Simpan Batas</button>
+            </div>
+            <div class="range-row">
+                <span>0</span>
+                <input type="range" id="threshold-range" min="0" max="100" step="0.5" value="30" aria-label="Geser batas suhu">
+                <span>100</span>
+            </div>
+            <p class="hint">
+                Notifikasi dikirim sekali saat suhu naik melewati batas, ke topik MQTT <code>iot/notifikasi dan notifikasi pop up pada dashboard</code>.
+            </p>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <div>
+                    <h2>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V18h6v-1.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg>
+                        Kontrol Perangkat
+                    </h2>
+                    <p class="panel-sub">Kirim perintah langsung ke lampu.</p>
+                </div>
+            </div>
+            <div class="lamp-state" id="lamp-state" data-state="unknown">
+                <div class="bulb" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V18h6v-1.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg>
+                </div>
+                <div>
+                    <strong id="lamp-text">Belum ada perintah</strong>
+                    <span class="sub" id="lamp-sub">Tekan salah satu tombol di bawah.</span>
+                </div>
+            </div>
+            <div class="controls device-controls">
+                <button class="btn btn-on" data-lamp-btn onclick="kontrol('lamp','on')">Nyalakan Lampu</button>
+                <button class="btn btn-off" data-lamp-btn onclick="kontrol('lamp','off')">Matikan Lampu</button>
+            </div>
+            <p class="hint">Hasil perintah juga tampil sebagai notifikasi dan di Log Aktivitas.</p>
+        </section>
+    </div>
+
+    <!-- History -->
+    <section class="panel" id="sec-riwayat">
+        <div class="panel-head">
+            <div>
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    10 Data Sensor Terakhir
+                </h2>
+                <p class="panel-sub">Data terbaru tampil paling atas.</p>
+            </div>
+            <button class="btn btn-muted btn-sm" id="export-csv" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Unduh CSV
+            </button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Suhu (°C)</th>
+                        <th>Kelembaban (%)</th>
+                    </tr>
+                </thead>
+                <tbody id="history-body">
+                    <tr><td colspan="3" style="text-align:center;color:#999;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Log -->
+    <section class="panel" id="sec-log">
+        <div class="panel-head">
+            <div>
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    Log Aktivitas
+                </h2>
+                <p class="panel-sub">Riwayat koneksi, perintah, dan peringatan.</p>
+            </div>
+            <div class="toolbar">
+                <div class="segmented" id="log-filter" role="group" aria-label="Filter log">
+                    <button class="seg-btn" type="button" data-log-filter="all" aria-pressed="true">Semua</button>
+                    <button class="seg-btn" type="button" data-log-filter="info" aria-pressed="false">Info</button>
+                    <button class="seg-btn" type="button" data-log-filter="error" aria-pressed="false">Peringatan</button>
+                </div>
+                <button class="btn btn-muted btn-sm" id="log-clear" type="button">Bersihkan</button>
+            </div>
+        </div>
+        <div id="log" data-filter="all"></div>
+    </section>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+<dialog id="threshold-alert-dialog" class="alert-dialog" aria-labelledby="alert-title" aria-describedby="alert-description">
+    <div class="alert-dialog-header">
+        <span class="alert-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            PERINGATAN SUHU
+        </span>
+        <button class="alert-close" id="close-alert-icon" type="button" aria-label="Tutup notifikasi">&times;</button>
+    </div>
+    <h2 id="alert-title">Batas suhu terlampaui</h2>
+    <p id="alert-description">Suhu sensor melewati batas yang telah ditentukan.</p>
+    <dl class="alert-details">
+        <div><dt>Suhu saat ini</dt><dd id="alert-temperature">--</dd></div>
+        <div><dt>Batas suhu</dt><dd id="alert-threshold">--</dd></div>
+        <div><dt>Waktu kejadian</dt><dd id="alert-time">--</dd></div>
+    </dl>
+    <p class="alert-note">Menyenyapkan modal tidak menghentikan notifikasi MQTT.</p>
+    <div class="alert-dialog-actions">
+        <button class="btn btn-muted" id="mute-alert-button" type="button">Senyapkan 5 menit</button>
+        <button class="btn btn-off" id="close-alert-button" type="button">Tutup</button>
+    </div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// ==============================
+// KONFIGURASI
+// ==============================
+const API_HOST = window.location.hostname || 'localhost';
+const API_BASE = `http://${API_HOST}:1880/api`;
+const WS_URL = `ws://${API_HOST}:1880/ws/sensor`;
+const BUFFER_LIMIT = 200;
+const ALERT_MUTE_DURATION_MS = 5 * 60 * 1000;
+
+let maxPoints = 50;
+let chartPaused = false;
+const chartBuffer = [];          // [{label, value}]
+let sensorChart;
+let websocket;
+let reconnectTimer;
+let alertsMutedUntil = 0;
+let wsOnline = false;
+let lastDataAt = null;
+let lastTemp = null;
+let prevTemp = null;
+let savedThreshold = null;
+let soundOn = false;
+let audioCtx = null;
+
+const $ = id => document.getElementById(id);
+
+// ==============================
+// UTILITY
+// ==============================
+function storeGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+function storeSet(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+function fmt(n) { return Number(n).toLocaleString('id-ID', {maximumFractionDigits: 1, minimumFractionDigits: 1}); }
+function toNum(v) {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+}
+
+function log(msg, type = 'info') {
+    const el = $('log');
+    const time = new Date().toLocaleTimeString();
+    const entry = document.createElement('div');
+    entry.className = type;
+    entry.textContent = `[${time}] ${msg}`;
+    el.appendChild(entry);
+    while (el.children.length > 100) el.firstElementChild.remove();
+    el.scrollTop = el.scrollHeight;
+}
+
+// ---------- Toast ----------
+const TOAST_ICONS = {
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+};
+
+function toast(message, type = 'info', duration = 3600) {
+    const wrap = $('toast-container');
+    while (wrap.children.length >= 4) wrap.firstElementChild.remove();
+
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.innerHTML = TOAST_ICONS[type] || TOAST_ICONS.info;   // string statis, bukan input pengguna
+
+    const text = document.createElement('span');
+    text.className = 'toast-text';
+    text.textContent = message;
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'toast-close';
+    close.setAttribute('aria-label', 'Tutup notifikasi');
+    close.textContent = '×';
+
+    const remove = () => {
+        if (!el.isConnected || el.classList.contains('toast-out')) return;
+        el.classList.add('toast-out');
+        setTimeout(() => el.remove(), 220);
+    };
+    close.addEventListener('click', remove);
+
+    el.append(icon, text, close);
+    wrap.appendChild(el);
+    setTimeout(remove, duration);
+}
+
+function flash(el) {
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+}
+
+function apiKey() {
+    return $('api-key').value.trim();
+}
+
+function requireKey() {
+    if (apiKey()) return true;
+    log('Tempel API key terlebih dahulu.', 'error');
+    toast('Isi API key terlebih dahulu.', 'error');
+    $('api-key').focus();
+    document.getElementById('sec-koneksi').scrollIntoView({behavior: 'smooth', block: 'center'});
+    return false;
+}
+
+async function apiFetch(path, options = {}) {
+    const headers = {
+        'X-API-Key': apiKey(),
+        ...(options.headers || {})
+    };
+    const response = await fetch(`${API_BASE}${path}`, {...options, headers});
+    const json = await response.json();
+
+    if (!response.ok) {
+        throw new Error(json.message || `HTTP ${response.status}`);
+    }
+
+    return json;
+}
+
+// ==============================
+// TEMA
+// ==============================
+function applyChartTheme() {
+    if (!sensorChart) return;
+    const cs = getComputedStyle(document.documentElement);
+    const text = cs.getPropertyValue('--chart-text').trim();
+    const grid = cs.getPropertyValue('--chart-grid').trim();
+    ['x', 'y'].forEach(axis => {
+        sensorChart.options.scales[axis].ticks.color = text;
+        sensorChart.options.scales[axis].grid.color = grid;
+    });
+    sensorChart.update('none');
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    $('theme-toggle').setAttribute('aria-label', theme === 'dark' ? 'Ganti ke tema terang' : 'Ganti ke tema gelap');
+    applyChartTheme();
+}
+
+// ==============================
+// SUHU: STATUS, GAUGE, TREN
+// ==============================
+function currentThreshold() {
+    return toNum($('threshold').value.trim());
+}
+
+function updateTrend() {
+    const el = $('suhu-trend');
+    if (prevTemp === null || lastTemp === null) { el.textContent = ''; el.className = 'trend'; return; }
+    if (lastTemp > prevTemp) {
+        el.textContent = '▲'; el.className = 'trend trend-up'; el.title = 'Naik';
+    } else if (lastTemp < prevTemp) {
+        el.textContent = '▼'; el.className = 'trend trend-down'; el.title = 'Turun';
+    } else {
+        el.textContent = '–'; el.className = 'trend trend-flat'; el.title = 'Stabil';
+    }
+}
+
+function refreshTempState() {
+    const card = $('card-temp');
+    const cap = $('temp-caption');
+    const fill = $('gauge-fill');
+    const mark = $('gauge-mark');
+    const thr = currentThreshold();
+
+    if (lastTemp === null) {
+        card.dataset.state = 'normal';
+        cap.textContent = 'Menunggu data suhu';
+        fill.style.width = '0%';
+        return;
+    }
+    if (thr === null) {
+        card.dataset.state = 'normal';
+        cap.textContent = 'Isi batas suhu yang valid untuk melihat status';
+        return;
+    }
+
+    const lo = Math.min(0, thr, lastTemp);
+    const hi = Math.max(thr, lastTemp) + Math.max(5, Math.abs(thr) * 0.25);
+    const span = hi - lo;
+    const pct = v => Math.max(0, Math.min(100, ((v - lo) / span) * 100));
+    fill.style.width = pct(lastTemp) + '%';
+    mark.style.left = pct(thr) + '%';
+
+    const diff = thr - lastTemp;
+    let state, text;
+    if (lastTemp >= thr) {
+        state = 'over';
+        text = `Melewati batas ${fmt(thr)} °C (+${fmt(lastTemp - thr)} °C)`;
+    } else if (diff <= 2) {
+        state = 'near';
+        text = `Mendekati batas, sisa ${fmt(diff)} °C`;
+    } else {
+        state = 'normal';
+        text = `Normal, ${fmt(diff)} °C di bawah batas`;
+    }
+    card.dataset.state = state;
+    cap.textContent = text;
+}
+
+// ==============================
+// GRAFIK
+// ==============================
+function updateStats(view) {
+    const vals = view.map(p => p.value).filter(v => v !== null && Number.isFinite(v));
+    if (!vals.length) {
+        ['stat-min', 'stat-avg', 'stat-max'].forEach(id => { $(id).textContent = '--'; });
+        return;
+    }
+    const sum = vals.reduce((a, b) => a + b, 0);
+    $('stat-min').textContent = `${fmt(Math.min(...vals))} °C`;
+    $('stat-avg').textContent = `${fmt(sum / vals.length)} °C`;
+    $('stat-max').textContent = `${fmt(Math.max(...vals))} °C`;
+}
+
+function renderChart() {
+    if (chartPaused) return;
+    const view = chartBuffer.slice(-maxPoints);
+    updateStats(view);
+    if (!sensorChart) return;
+
+    const thr = currentThreshold();
+    sensorChart.data.labels = view.map(p => p.label);
+    sensorChart.data.datasets[0].data = view.map(p => p.value);
+    sensorChart.data.datasets[1].data = view.map(() => thr);
+    sensorChart.update('none');
+}
+
+function pushChartPoint(label, value) {
+    chartBuffer.push({label, value});
+    while (chartBuffer.length > BUFFER_LIMIT) chartBuffer.shift();
+    renderChart();
+}
+
+// ==============================
+// UPDATE SENSOR
+// ==============================
+function updateSensor(data) {
+    if (!data || data.suhu === null || data.suhu === undefined) return;
+
+    const suhuEl = $('suhu');
+    const humEl = $('kelembaban');
+    suhuEl.textContent = data.suhu;
+    humEl.textContent = data.kelembaban ?? '--';
+    flash(suhuEl);
+    flash(humEl);
+
+    const badge = $('status-badge');
+    badge.textContent = 'ONLINE';
+    badge.className = 'status-badge status-online';
+
+    lastDataAt = Date.now();
+
+    const temp = toNum(data.suhu);
+    if (temp !== null) {
+        prevTemp = lastTemp;
+        lastTemp = temp;
+        updateTrend();
+        refreshTempState();
+        const label = new Date(data.received || data.timestamp || Date.now()).toLocaleTimeString();
+        pushChartPoint(label, temp);
+    }
+    updateLastSeen();
+}
+
+function addHistoryRow(data, prepend = false) {
+    const tbody = $('history-body');
+    const emptyRow = tbody.querySelector('[data-empty]');
+    if (emptyRow) emptyRow.remove();
+
+    const row = document.createElement('tr');
+    if (prepend) row.className = 'row-new';
+    const values = [
+        new Date(data.received || data.timestamp).toLocaleTimeString(),
+        data.suhu ?? '--',
+        data.kelembaban ?? '--'
+    ];
+
+    values.forEach(value => {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        row.appendChild(cell);
+    });
+
+    if (prepend) tbody.prepend(row);
+    else tbody.appendChild(row);
+
+    while (tbody.rows.length > 10) {
+        tbody.deleteRow(prepend ? tbody.rows.length - 1 : 0);
+    }
+}
+
+function setWsStatus(online) {
+    const badge = $('ws-status');
+    badge.textContent = online ? 'TERHUBUNG' : 'TERPUTUS';
+    badge.className = `status-badge ${online ? 'status-online' : 'status-offline'}`;
+}
+
+// ==============================
+// WAKTU TERAKHIR DATA
+// ==============================
+function agoText(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    if (s < 5) return 'baru saja';
+    if (s < 60) return `${s} detik lalu`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} menit lalu`;
+    return `${Math.floor(m / 60)} jam lalu`;
+}
+
+function updateLastSeen() {
+    if (lastDataAt === null) { $('last-update-text').textContent = 'Menunggu data…'; return; }
+    const t = agoText(Date.now() - lastDataAt);
+    $('last-update-text').textContent = `Data: ${t}`;
+    $('status-caption').textContent = `Data terakhir diterima ${t}`;
+}
+
+// ==============================
+// SUARA PERINGATAN
+// ==============================
+function beep() {
+    if (!audioCtx) return;
+    [0, 0.28].forEach(offset => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const t = audioCtx.currentTime + offset;
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.2, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.25);
+    });
+}
+
+function toggleSound() {
+    const btn = $('sound-toggle');
+    if (!soundOn) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) { toast('Browser tidak mendukung suara peringatan.', 'error'); return; }
+        audioCtx = audioCtx || new AC();
+        if (audioCtx.resume) audioCtx.resume();
+    }
+    soundOn = !soundOn;
+    btn.setAttribute('aria-pressed', String(soundOn));
+    btn.setAttribute('aria-label', soundOn ? 'Matikan suara peringatan' : 'Aktifkan suara peringatan');
+    if (soundOn) beep();
+    toast(soundOn ? 'Suara peringatan aktif.' : 'Suara peringatan dimatikan.', 'info', 2400);
+}
+
+// ==============================
+// DIALOG PERINGATAN
+// ==============================
+function showThresholdAlert(alert) {
+    if (Date.now() < alertsMutedUntil) return;
+
+    const happenedAt = new Date(alert.received);
+    const happenedAtText = Number.isNaN(happenedAt.getTime())
+        ? alert.received
+        : happenedAt.toLocaleString('id-ID');
+
+    $('alert-temperature').textContent = `${alert.suhu} °C`;
+    $('alert-threshold').textContent = `${alert.threshold} °C`;
+    $('alert-time').textContent = happenedAtText;
+
+    const dialog = $('threshold-alert-dialog');
+    if (!dialog.open) dialog.showModal();
+    if (soundOn) beep();
+    log(`Peringatan suhu: ${alert.suhu} °C melewati batas ${alert.threshold} °C.`, 'error');
+}
+
+function muteThresholdAlerts() {
+    alertsMutedUntil = Date.now() + ALERT_MUTE_DURATION_MS;
+    $('threshold-alert-dialog').close();
+    const until = new Date(alertsMutedUntil).toLocaleTimeString('id-ID');
+    log(`Modal notifikasi disenyapkan sampai ${until}. Notifikasi MQTT tetap aktif.`, 'info');
+    toast(`Modal peringatan disenyapkan sampai ${until}.`, 'info');
+}
+
+// ==============================
+// BATAS SUHU (UI)
+// ==============================
+function syncThresholdUI() {
+    const thr = currentThreshold();
+    if (thr !== null) $('threshold-range').value = thr;
+    const dirty = thr !== null && savedThreshold !== null && thr !== savedThreshold;
+    $('threshold-dirty').hidden = !dirty;
+    refreshTempState();
+    renderChart();
+}
+
+function stepThreshold(delta) {
+    const cur = currentThreshold();
+    const base = cur === null ? (savedThreshold ?? 30) : cur;
+    const next = Math.max(-50, Math.min(200, Math.round((base + delta) * 10) / 10));
+    $('threshold').value = next;
+    syncThresholdUI();
+}
+
+// ==============================
+// FETCH DATA SENSOR (GET)
+// ==============================
+async function fetchSensor() {
+    const json = await apiFetch('/suhu');
+    updateSensor(json.data);
+    if (typeof json.threshold === 'number' && Number.isFinite(json.threshold)) {
+        $('threshold').value = json.threshold;
+        savedThreshold = json.threshold;
+        syncThresholdUI();
+    }
+}
+
+// ==============================
+// FETCH HISTORY
+// ==============================
+async function fetchHistory() {
+    try {
+        const json = await apiFetch('/history');
+        const tbody = $('history-body');
+        tbody.replaceChildren();
+
+        if (!json.data || json.data.length === 0) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 3;
+            cell.dataset.empty = 'true';
+            cell.style.textAlign = 'center';
+            cell.style.color = '#999';
+            cell.textContent = 'Belum ada data';
+            row.appendChild(cell);
+            tbody.appendChild(row);
+            return true;
+        }
+
+        json.data.slice(-10).reverse().forEach(data => addHistoryRow(data));
+
+        chartBuffer.length = 0;
+        json.data.forEach(data => chartBuffer.push({
+            label: new Date(data.received || data.timestamp).toLocaleTimeString(),
+            value: toNum(data.suhu)
+        }));
+        while (chartBuffer.length > BUFFER_LIMIT) chartBuffer.shift();
+        renderChart();
+        return true;
+    } catch (err) {
+        const tbody = $('history-body');
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 3;
+        cell.style.textAlign = 'center';
+        cell.textContent = `Gagal memuat data: ${err.message}`;
+        row.appendChild(cell);
+        tbody.replaceChildren(row);
+        log(`Gagal fetch history: ${err.message}`, 'error');
+        return false;
+    }
+}
+
+async function connectApi() {
+    const button = $('connect-api');
+    const status = $('api-status');
+
+    if (!apiKey()) {
+        status.textContent = 'KEY BELUM DIISI';
+        status.className = 'status-badge status-offline';
+        requireKey();
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Menghubungkan...';
+
+    try {
+        await fetchSensor();
+        await fetchHistory();
+        status.textContent = 'TERHUBUNG';
+        status.className = 'status-badge status-online';
+        log('API terhubung. API key diterima.', 'info');
+        toast('API terhubung. Data berhasil dimuat.', 'success');
+    } catch (err) {
+        status.textContent = 'GAGAL';
+        status.className = 'status-badge status-offline';
+        log(`Gagal menyambungkan API: ${err.message}`, 'error');
+        toast(`Gagal menyambungkan API: ${err.message}`, 'error', 5000);
+    } finally {
+        button.disabled = false;
+        button.textContent = 'Sambungkan';
+    }
+}
+
+// ==============================
+// KONTROL LAMPU (POST)
+// ==============================
+function setLampState(action) {
+    const on = action === 'on';
+    $('lamp-state').dataset.state = on ? 'on' : 'off';
+    $('lamp-text').textContent = on ? 'Perintah terakhir: NYALA' : 'Perintah terakhir: MATI';
+    $('lamp-sub').textContent = `Dikirim pukul ${new Date().toLocaleTimeString('id-ID')}. Status fisik lampu tidak dikonfirmasi.`;
+}
+
+async function kontrol(device, action) {
+    if (!requireKey()) return;
+
+    const buttons = document.querySelectorAll('[data-lamp-btn]');
+    buttons.forEach(b => { b.disabled = true; });
+
+    try {
+        const json = await apiFetch('/kontrol', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device, action })
+        });
+
+        if (json.status === 'success') {
+            log(`✓ Perintah terkirim: ${device} → ${action}`, 'info');
+            setLampState(action);
+            toast(`Perintah lampu ${action === 'on' ? 'NYALA' : 'MATI'} terkirim.`, 'success');
+        } else {
+            log(`✗ Gagal: ${json.message}`, 'error');
+            toast(`Gagal: ${json.message}`, 'error');
+        }
+    } catch (err) {
+        log(`✗ Error kontrol: ${err.message}`, 'error');
+        toast(`Error kontrol: ${err.message}`, 'error', 5000);
+    } finally {
+        buttons.forEach(b => { b.disabled = false; });
+    }
+}
+
+async function saveThreshold() {
+    if (!requireKey()) return;
+
+    const rawThreshold = $('threshold').value.trim();
+    if (rawThreshold === '') {
+        log('Masukkan batas suhu terlebih dahulu.', 'error');
+        toast('Masukkan batas suhu terlebih dahulu.', 'error');
+        return;
+    }
+
+    const threshold = Number(rawThreshold);
+    const button = $('save-threshold');
+    button.disabled = true;
+    try {
+        const json = await apiFetch('/threshold', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({threshold})
+        });
+        savedThreshold = toNum(json.threshold) ?? threshold;
+        syncThresholdUI();
+        log(`Batas suhu disimpan: ${json.threshold} °C`, 'info');
+        toast(`Batas suhu disimpan: ${json.threshold} °C`, 'success');
+    } catch (err) {
+        log(`Gagal menyimpan batas suhu: ${err.message}`, 'error');
+        toast(`Gagal menyimpan batas suhu: ${err.message}`, 'error', 5000);
+    } finally {
+        button.disabled = false;
+    }
+}
+
+// ==============================
+// UNDUH CSV
+// ==============================
+function exportCsv() {
+    const rows = [...$('history-body').rows].filter(r => r.cells.length === 3);
+    if (!rows.length) {
+        toast('Belum ada data untuk diunduh.', 'error');
+        return;
+    }
+    const lines = ['Waktu,Suhu (C),Kelembaban (%)'];
+    rows.forEach(r => {
+        lines.push([...r.cells].map(c => `"${c.textContent.replace(/"/g, '""')}"`).join(','));
+    });
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], {type: 'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `riwayat-sensor-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(`${rows.length} baris diunduh sebagai CSV.`, 'success');
+}
+
+// ==============================
+// WEBSOCKET
+// ==============================
+function connectWebSocket() {
+    websocket = new WebSocket(WS_URL);
+
+    websocket.addEventListener('open', () => {
+        setWsStatus(true);
+        if (!wsOnline) {
+            log('WebSocket terhubung.', 'info');
+            toast('WebSocket terhubung. Data real-time aktif.', 'success');
+        }
+        wsOnline = true;
+    });
+    websocket.addEventListener('message', event => {
+        try {
+            const message = JSON.parse(event.data);
+            if (message.type === 'sensor') {
+                updateSensor(message.data);
+                addHistoryRow(message.data, true);
+                if (message.alert) showThresholdAlert(message.alert);
+            }
+        } catch (err) {
+            log(`Pesan WebSocket tidak valid: ${err.message}`, 'error');
+        }
+    });
+    websocket.addEventListener('close', () => {
+        setWsStatus(false);
+        if (wsOnline) {
+            log('WebSocket terputus. Mencoba menyambung ulang...', 'error');
+            toast('WebSocket terputus. Mencoba menyambung ulang…', 'error');
+        }
+        wsOnline = false;
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connectWebSocket, 3000);
+    });
+    websocket.addEventListener('error', () => websocket.close());
+}
+
+// ==============================
+// INISIALISASI GRAFIK
+// ==============================
+if (typeof Chart !== 'undefined') {
+    sensorChart = new Chart($('sensor-chart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Suhu (°C)',
+                    data: [],
+                    borderColor: '#38bdf8',
+                    backgroundColor: ctx => {
+                        const {chart} = ctx;
+                        const area = chart.chartArea;
+                        if (!area) return 'rgba(56, 189, 248, 0.14)';
+                        const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                        g.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+                        g.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                        return g;
+                    },
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 2,
+                    pointHoverRadius: 6,
+                    borderWidth: 2.5
+                },
+                {
+                    label: 'Batas notifikasi',
+                    data: [],
+                    borderColor: '#f87171',
+                    borderDash: [6, 6],
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            interaction: {mode: 'index', intersect: false},
+            scales: {
+                x: {ticks: {color: '#9ca3af', maxTicksLimit: 8}, grid: {color: 'rgba(255, 255, 255, 0.06)'}},
+                y: {ticks: {color: '#9ca3af'}, grid: {color: 'rgba(255, 255, 255, 0.06)'}}
+            },
+            plugins: {legend: {display: false}}
+        }
+    });
+} else {
+    log('Chart.js tidak dapat dimuat. Periksa koneksi internet.', 'error');
+}
+
+// ==============================
+// EVENT LISTENER
+// ==============================
+$('save-threshold').addEventListener('click', saveThreshold);
+$('connect-api').addEventListener('click', connectApi);
+$('close-alert-icon').addEventListener('click', () => $('threshold-alert-dialog').close());
+$('close-alert-button').addEventListener('click', () => $('threshold-alert-dialog').close());
+$('mute-alert-button').addEventListener('click', muteThresholdAlerts);
+$('threshold-alert-dialog').addEventListener('click', event => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+});
+$('api-key').addEventListener('keydown', event => {
+    if (event.key === 'Enter') connectApi();
+});
+
+// Tampilkan / sembunyikan API key
+$('toggle-key').addEventListener('click', () => {
+    const input = $('api-key');
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    $('toggle-key').setAttribute('aria-pressed', String(show));
+    $('toggle-key').setAttribute('aria-label', show ? 'Sembunyikan API key' : 'Tampilkan API key');
+    input.focus();
+});
+
+// Batas suhu: ketik, geser, tombol +/-
+$('threshold').addEventListener('input', syncThresholdUI);
+$('threshold').addEventListener('keydown', event => {
+    if (event.key === 'Enter') saveThreshold();
+});
+$('threshold-range').addEventListener('input', event => {
+    $('threshold').value = event.target.value;
+    syncThresholdUI();
+});
+$('thr-minus').addEventListener('click', () => stepThreshold(-0.5));
+$('thr-plus').addEventListener('click', () => stepThreshold(0.5));
+
+// Grafik: rentang & jeda
+$('range-group').addEventListener('click', event => {
+    const btn = event.target.closest('[data-range]');
+    if (!btn) return;
+    maxPoints = Number(btn.dataset.range);
+    $('range-group').querySelectorAll('[data-range]').forEach(b => {
+        b.setAttribute('aria-pressed', String(b === btn));
+    });
+    renderChart();
+});
+
+$('chart-pause').addEventListener('click', () => {
+    chartPaused = !chartPaused;
+    $('chart-pause').setAttribute('aria-pressed', String(chartPaused));
+    $('chart-pause-label').textContent = chartPaused ? 'Lanjutkan' : 'Jeda';
+    $('chart-paused-badge').hidden = !chartPaused;
+    if (chartPaused) {
+        toast('Grafik dijeda. Data tetap dicatat di latar belakang.', 'info', 2800);
+    } else {
+        renderChart();
+    }
+});
+
+// Log: filter & bersihkan
+$('log-filter').addEventListener('click', event => {
+    const btn = event.target.closest('[data-log-filter]');
+    if (!btn) return;
+    $('log').dataset.filter = btn.dataset.logFilter;
+    $('log-filter').querySelectorAll('[data-log-filter]').forEach(b => {
+        b.setAttribute('aria-pressed', String(b === btn));
+    });
+});
+$('log-clear').addEventListener('click', () => {
+    $('log').replaceChildren();
+    toast('Log dibersihkan.', 'info', 1800);
+});
+
+// Riwayat, suara, tema
+$('export-csv').addEventListener('click', exportCsv);
+$('sound-toggle').addEventListener('click', toggleSound);
+$('theme-toggle').addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    storeSet('iot-theme', next);
+});
+
+// Navigasi cepat: sorot bagian yang sedang dilihat
+(function setupScrollSpy() {
+    const nav = document.querySelector('.quick-nav');
+    const links = [...nav.querySelectorAll('a')];
+    const items = links
+        .map(a => ({link: a, el: document.getElementById(a.getAttribute('href').slice(1))}))
+        .filter(item => item.el);
+    if (!items.length) return;
+
+    const TRIGGER_LINE = 120;      // px dari atas layar
+    let lockUntil = 0;             // jeda deteksi saat scroll mulus akibat klik
+    let ticking = false;
+
+    function setActive(link) {
+        links.forEach(a => {
+            const on = a === link;
+            a.classList.toggle('active', on);
+            if (on) a.setAttribute('aria-current', 'true');
+            else a.removeAttribute('aria-current');
+        });
+        // Jaga agar menu aktif tetap terlihat saat menu bisa digeser (layar kecil)
+        nav.scrollTo({
+            left: link.offsetLeft - (nav.clientWidth - link.offsetWidth) / 2,
+            behavior: 'smooth'
+        });
+    }
+
+    function update() {
+        ticking = false;
+        if (Date.now() < lockUntil) return;
+
+        const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+        let current = items[0];
+
+        if (atBottom) {
+            current = items[items.length - 1];
+        } else {
+            items.forEach(item => {
+                if (item.el.getBoundingClientRect().top <= TRIGGER_LINE) current = item;
+            });
+        }
+
+        if (!current.link.classList.contains('active')) setActive(current.link);
+    }
+
+    function requestUpdate() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(update);
+    }
+
+    links.forEach(a => {
+        a.addEventListener('click', () => {
+            setActive(a);                         // langsung aktif saat diklik
+            lockUntil = Date.now() + 900;         // tunggu scroll mulus selesai
+            setTimeout(update, 950);
+        });
+    });
+
+    window.addEventListener('scroll', requestUpdate, {passive: true});
+    window.addEventListener('resize', requestUpdate);
+    update();
+})();
+
+// ==============================
+// INISIALISASI
+// ==============================
+applyTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+syncThresholdUI();
+updateLastSeen();
+setInterval(updateLastSeen, 1000);
+
+log('Dashboard dimulai. Menunggu update WebSocket...', 'info');
+connectWebSocket();
+</script>
+</body>
+</html>
